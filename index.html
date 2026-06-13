@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hercules Obfuscator | منصة التشفير الاحترافية</title>
+    <title>SA | ALONE</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -91,7 +91,6 @@
             flex: 1;
         }
 
-        /* لوحة التحكم الجانبية */
         .sidebar {
             background-color: var(--bg-card);
             border: 1px solid var(--border);
@@ -182,7 +181,7 @@
             box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
         }
 
-        /* منطقة الأكواد والمحررات */
+        
         .workspace {
             display: grid;
             grid-template-rows: 1fr 1fr;
@@ -253,7 +252,7 @@
             flex: 1;
             background-color: var(--bg-input);
             border: none;
-            color: #34d399; /* لون كود مميز ومريح للعين */
+            color: #34d399;
             font-family: 'Consolas', 'Courier New', monospace;
             font-size: 0.95rem;
             padding: 1.25rem;
@@ -263,7 +262,7 @@
             tab-size: 4;
         }
 
-        /* شاشة التحميل المتوهجة */
+        
         .loading-overlay {
             position: absolute;
             top: 0;
@@ -319,8 +318,8 @@
         <div class="logo-area">
             <div class="logo-icon">H</div>
             <div class="logo-text">
-                <h1>Hercules Obfuscator</h1>
-                <p>نظام التشفير وحماية أكواد لغة Lua والـ VM</p>
+                <h1>SA | OBFUSCATOR</h1>
+                <p>discord.gg/eS4fgMazxy</p>
             </div>
         </div>
     </header>
@@ -328,7 +327,7 @@
     <div class="container">
         <aside class="sidebar">
             <div>
-                <div class="section-title">إعدادات المحرك الخلفي</div>
+                <div class="section-title">إعدادات التشفير (يفضل تتركها زي ما هي)</div>
                 <div class="option-group">
                     <label class="option-item">
                         <input type="checkbox" id="param-vm" checked>
@@ -393,13 +392,13 @@
                         <button class="btn-action" onclick="document.getElementById('input-code').value=''">تنظيف</button>
                     </div>
                 </div>
-                <textarea id="input-code" placeholder="-- ضع سكريبت Lua الخاص بك هنا ليتم حمايته وتشفيره عبر محرك Hercules..." spellcheck="false"></textarea>
+                <textarea id="input-code" placeholder="-- ضع سكريبت Lua الخاص بك هنا ليتم حمايته وتشفيره عبر  SA | OBFSCATOR..." spellcheck="false"></textarea>
             </div>
 
             <div class="editor-container">
                 <div class="loading-overlay" id="loading-view">
                     <div class="spinner"></div>
-                    <p style="font-weight: 500; font-size: 0.95rem;">جاري معالجة خط الأنابيب وتوليد الـ VM...</p>
+                    <p style="font-weight: 500; font-size: 0.95rem;">جاري معالجة ...</p>
                 </div>
                 <div class="editor-header">
                     <div class="editor-label" style="color: var(--success);">الكود المشفر الناتج (Obfuscated Code)</div>
@@ -413,7 +412,7 @@
     </div>
 
     <footer>
-        <p>© 2026 تم تطوير الواجهة البرمجية والربط السحابي بواسطة ومحرك Hercules</p>
+        <p>© 2026 تم تطوير الواجهة البرمجية بواسطة SA | ALONE</p>
     </footer>
 
     <script>
@@ -428,10 +427,10 @@
             const actions = document.getElementById('output-actions');
             const outputArea = document.getElementById('output-code');
 
-            // إظهار شاشة التحميل المتوهجة
+            
             loading.classList.add('active');
 
-            // إرسال طلب التشفير الفعلي إلى سيرفر Vercel الخلفي
+           
             fetch('/obfuscate', {
                 method: 'POST',
                 headers: {
@@ -454,7 +453,7 @@
                 return response.json();
             })
             .then(data => {
-                // عرض النتيجة الحقيقية القادمة من خط أنابيب الـ Lua الخاص بك
+                
                 outputArea.value = data.obfuscated;
                 loading.classList.remove('active');
                 actions.style.display = 'flex';
