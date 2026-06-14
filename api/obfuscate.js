@@ -30,7 +30,7 @@ function autoFixLuaCode(code) {
         fixedCode = fixedCode.replace(operatorRegex, (match, variable, operator, value) => {
             return `${variable} = ${variable} ${operator} ${value}`;
         });
-        report.push("تعديل اختصارات العمليات الحسابية القياسية (مثل `+=`, `-=`) إلى صياغة Lua 5.1 القياسية");
+        report.push("تعديل اختصارات العمليات الحسابية القياسية (مثل `+=`, `-=`) إلى الصياغة الصحيحة");
     }
 
     return { fixedCode, report };
@@ -116,7 +116,7 @@ if (DISCORD_TOKEN) {
             if (message.channel.type !== ChannelType.DM) {
                 if (message.deletable) await message.delete().catch(() => {});
                 
-                return message.reply("❌ **أمن الكود أولاً!** لأسباب أمنية، أوامر التشفير والتصحيح تشتغل في **الخاص فقط**. أرسل ملفك أو كودك هنا في رسالة خاصة مباشرة.")
+                return message.reply("❌ أمن الكود أولاً!* لأسباب أمنية، أوامر التشفير والتصحيح تشتغل في **الخاص فقط**. أرسل ملفك أو كودك عبر البوت في رسالة خاصة مباشرة.")
                     .then(msg => {
                         setTimeout(() => msg.delete().catch(() => {}), 7000);
                     }).catch(() => {});
@@ -146,7 +146,7 @@ if (DISCORD_TOKEN) {
             }
             
             if (!codeToObfuscate) {
-                return message.reply(`❌ يرجى إدخال الكود أو رفع ملف نصي مع الأمر! أمثلة:\n• \`!obf print("Hello")\`\n• \`!real x += 1\` (للتصحيح والتشفير التلقائي)`);
+                return message.reply(`❌ يرجى إدخال الكود أو رفع ملف بصيغة txt / lua مع الأمر! أمثلة:\n• \`!obf print("Hello")\`\n• \`!real x += 1\` (للتصحيح والتشفير التلقائي)`);
             }
 
             let finalReportMessage = "";
@@ -157,18 +157,18 @@ if (DISCORD_TOKEN) {
                 codeToObfuscate = fixResult.fixedCode;
                 
                 if (fixResult.report.length > 0) {
-                    finalReportMessage = "🛠️ **تقرير التصحيح التلقائي:**\n" + fixResult.report.map(r => `• ${r}`).join('\n') + "\n\n";
+                    finalReportMessage = "🛠️ ** التصحيح التلقائي:**\n" + fixResult.report.map(r => `• ${r}`).join('\n') + "\n\n";
                 } else {
-                    finalReportMessage = "✨ تم فحص الكود ولم يتم العثور على أخطاء صياغة شائعة، جاري التشفير مباشرة...\n\n";
+                    finalReportMessage = "✨ تم فحص الكود ولم يتم العثور على أخطاء جاري التشفير مباشرة...\n\n";
                 }
             }
 
-            const waitingMsg = await message.reply('⏳ جاري معالجة وتشفير الكود الخاص بك عبر محرك Hercules...');
+            const waitingMsg = await message.reply('⏳ جاري تشفير الكود الخاص بك عبر  SA | OBFUSACTOR ...');
 
             // تشغيل محرك التشفير
             runHercules(codeToObfuscate, async (err, result) => {
                 if (err) {
-                    return waitingMsg.edit(`❌ فشل التشفير بسبب خطأ بالمحرك:\n\`\`\`text\n${err}\n\`\`\`\n💡 نصيحة: إذا كان الكود يحتوي على صياغة غير قياسية، جرب استخدام أمر \`!real\` بدلاً من \`!obf\` ليقوم البوت بتصحيحه تلقائياً.`);
+                    return waitingMsg.edit(`❌ فشل التشفير بسبب خطأ استخدم امر !real`);
                 }
 
                 const responseText = finalReportMessage + "✅ **تم التشفير بنجاح!**";
