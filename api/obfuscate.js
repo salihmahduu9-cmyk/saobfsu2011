@@ -18,6 +18,31 @@ app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.use(express.static(path.join(__dirname, '../')));
 
+// مسار ملف حفظ الإحصائيات لضمان عدم تصفير العدادات عند إعادة تشغيل Railway
+const statsPath = path.join(__dirname, '../stats.json');
+
+// دالة لجلب الإحصائيات الحالية
+function getStats() {
+    if (!fs.existsSync(statsPath)) {
+        return { totalObfuscations: 0, uniqueUsers: [] };
+    }
+    try {
+        const data = fs.readFileSync(statsPath, 'utf8');
+        return JSON.parse(data);
+    } catch (e) {
+        return { totalObfuscations: 0, uniqueUsers: [] };
+    }
+}
+
+// دالة لتحديث وحفظ الإحصائيات
+function saveStats(stats) {
+    try {
+        fs.writeFileSync(statsPath, JSON.stringify(stats, null, 2), 'utf8');
+    } catch (e) {
+        console.error("Failed to save stats:", e);
+    }
+}
+
 // دالة ذكية لتصحيح أخطاء الـ Lua الشائعة تلقائياً قبل التشفير
 function autoFixLuaCode(code) {
     let fixedCode = code;
@@ -35,7 +60,7 @@ function autoFixLuaCode(code) {
     return { fixedCode, report };
 }
 
-// دالة المعالجة المشتركة لتشغيل محرك Hercules
+// دالة المعالجة المشتركة لتشغيل محرك Hercules مع التعديل المطلوب لعمل مسافة داخل الملف المشفر
 function runHercules(code, callback) {
     const rootDir = path.join(__dirname, '../');
     const uniqueId = Date.now();
@@ -64,7 +89,21 @@ function runHercules(code, callback) {
                 if (fs.existsSync(expectedOutputPath)) fs.unlinkSync(expectedOutputPath);
                 if (readErr) return callback(readErr, null);
                 
-                callback(null, obfuscatedResult);
+                // ✨ [تعديل التباعد بداخل الملف المشفر]:
+                // نقوم بوضع مسافة أسطر فارغة بعد هيدر التعليق البرمجي لكي لا يتداخل مع الـ return وكود التشفير الأساسي
+                let formattedResult = obfuscatedResult;
+                if (formattedResult.startsWith("--")) {
+                    const firstLineEnd = formattedResult.indexOf('\n');
+                    if (firstLineEnd !== -1) {
+                        const header = formattedResult.substring(0, firstLineEnd);
+                        const restOfCode = formattedResult.substring(firstLineEnd).trim();
+                        formattedResult = `${header}\n\n\n${restOfCode}`;
+                    } else {
+                        formattedResult = formattedResult.replace("--تم التشفير والحماية بواسطة SA | ALONE", "--تم التشفير والحماية بواسطة SA | ALONE\n\n\n");
+                    }
+                }
+                
+                callback(null, formattedResult);
             });
         });
     });
@@ -111,6 +150,20 @@ if (DISCORD_TOKEN) {
 
         const isObfCommand = message.content.startsWith('!obf');
         const isRealCommand = message.content.startsWith('!real');
+        const isResCommand = message.content.startsWith('!res');
+
+        // 📊 [أمر الإحصائيات الجديد !res]
+        if (isResCommand) {
+            if (message.channel.type !== ChannelType.DM) {
+                if (message.deletable) await message.delete().catch(() => {});
+                return message.reply("⚠️ الأوامر تعمل في **الخاص فقط** لحماية خصوصية بياناتك.").then(msg => {
+                    setTimeout(() => msg.delete().catch(() => {}), 5000);
+                }).catch(() => {});
+            }
+
+            const stats = getStats();
+            return message.reply(`📊 **إحصائيات منصة SA | OBFUSCATOR:**\n\n> 💎 **إجمالي عمليات التشفير الناجحة:** \`${stats.totalObfuscations}\` مرة.\n> 👥 **عدد المستخدمين الفريدين للبوت:** \`${stats.uniqueUsers.length}\` مستخدم.\n\n✨ فخورين بتقديم أفضل حماية لأكوادكم!`);
+        }
 
         if (isObfCommand || isRealCommand) {
             
@@ -148,7 +201,7 @@ if (DISCORD_TOKEN) {
             }
             
             if (!codeToObfuscate) {
-                return message.reply(`⭐ **مرحباً بك في SA | OBFUSCATOR`);
+                return message.reply(`⭐ **مرحباً بك في SA | OBFUSCATOR**`);
             }
 
             let finalReportMessage = "";
@@ -174,9 +227,17 @@ if (DISCORD_TOKEN) {
                     return waitingMsg.edit(`❌ فشل التشفير جرب بامر !real`);
                 }
 
-                // دمج التقارير والحقوق الرسمية المظهرية للبوت
+                // 📈 تحديث وحفظ الإحصائيات عند نجاح التشفير
+                const currentStats = getStats();
+                currentStats.totalObfuscations += 1;
+                if (!currentStats.uniqueUsers.includes(message.author.id)) {
+                    currentStats.uniqueUsers.push(message.author.id);
+                }
+                saveStats(currentStats);
+
+                // دمج التقارير والحقوق الرسمية المظهرية للبوت مع نزول أسطر تمنع تداخل النصوص والـ Code Block
                 const footerText = "\n\n✨ *تم التشفير بنجاح بواسطة برمجيات: **SA | OBFUSCATOR***";
-                const fullResponseText = finalReportMessage + "💎 **[SA | OBFUSCATOR] - التشفير النهائي جاهز ومحمي بالكامل:**" + footerText;
+                const fullResponseText = finalReportMessage + "💎 **[SA | OBFUSCATOR] - التشفير النهائي جاهز ومحمي بالكامل:**\n" + footerText + "\n\n";
 
                 // إذا كان الناتج طويلاً أو أرسل ملفاً، نعيد له الناتج كملف فخم ومنظم
                 if (result.length > 1900 || message.attachments.size > 0) {
@@ -184,8 +245,8 @@ if (DISCORD_TOKEN) {
                     await message.reply({ content: fullResponseText, files: [attachment] });
                     waitingMsg.delete().catch(() => {});
                 } else {
-                    // إذا كان الكود قصيراً، يظهر بداخل بوكس برميجي أنيق
-                    waitingMsg.edit(`${fullResponseText}\n\`\`\`lua\n${result}\n\`\`\``);
+                    // إذا كان الكود قصيراً، يظهر بداخل بوكس برميجي أنيق ومفصول بمسافات لجمالية المظهر
+                    waitingMsg.edit(`${fullResponseText}\`\`\`lua\n${result}\n\`\`\``);
                 }
             });
         }
