@@ -19,7 +19,7 @@ app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 // تشغيل واجهة الموقع الإلكتروني الساكنة من المجلد الرئيسي
 app.use(express.static(path.join(__dirname, '../')));
 
-// دالة المعالجة المشتركة لتشغيل محرك Hercules عبر الـ CLI الخاص بـ Lua 5.1
+// دالة المعالجة المشتركة لتشغيل محرك Hercules
 function runHercules(code, callback) {
     const rootDir = path.join(__dirname, '../');
     const uniqueId = Date.now();
@@ -71,7 +71,7 @@ app.listen(PORT, () => {
     console.log(`Web server successfully deployed on port ${PORT}`);
 });
 
-// 🤖 [بوت الديسكورد] التشغيل والربط الآمن (حصر التشغيل في الخاص DM فقط)
+// 🤖 [بوت الديسكورد] التشغيل والربط الآمن مع حصر الأوامر في الخاص DM فقط
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
 if (DISCORD_TOKEN) {
@@ -103,10 +103,10 @@ if (DISCORD_TOKEN) {
                 }
                 
                 // إرسال تنبيه مؤقت للمستخدم يطلب منه التوجه للشات الخاص بالبوت
-                return message.reply(`❌ **أمن الكود أولاً!** لأسباب أمنية وحماية لأكوادك، أمر التشفير يشتغل في **الخاص فقط**. أرسل كودك هنا في رسالة خاصة لي مباشرة.`)
+                return message.reply("❌ **أمن الكود أولاً!** لأسباب أمنية وحماية لأكوادك، أمر التشفير يشتغل في **الخاص فقط**. أرسل كودك هنا في رسالة خاصة لي مباشرة.")
                     .then(msg => {
-                        // حذف التنبيه بعد 8 ثوانٍ ليبقى السيرفر نظيفاً
-                        setTimeout(() => msg.delete().catch(() => {}), 8000);
+                        // حذف التنبيه بعد 7 ثوانٍ ليبقى السيرفر نظيفاً
+                        setTimeout(() => msg.delete().catch(() => {}), 7000);
                     }).catch(() => {});
             }
 
@@ -121,7 +121,7 @@ if (DISCORD_TOKEN) {
 
             runHercules(codeToObfuscate, async (err, result) => {
                 if (err) {
-                    return waitingMsg.edit(`❌ فشل التشفير بسبب خطأ بالمحرك:\n\\`\\`\\`text\n\${err}\n\\`\\`\\``);
+                    return waitingMsg.edit("❌ فشل التشفير بسبب خطأ بالمحرك:\n```text\n" + err + "\n```");
                 }
 
                 // ديسكورد لا يتحمل الرسائل التي تزيد عن 2000 حرف، لذا نحولها لملف تلقائياً
@@ -130,13 +130,13 @@ if (DISCORD_TOKEN) {
                     await message.reply({ content: '✅ تم التشفير بنجاح! نظراً لطول الكود تم تصديره كملف جاهز للتنزيل:', files: [attachment] });
                     waitingMsg.delete().catch(() => {});
                 } else {
-                    waitingMsg.edit(`✅ **تم التشفير بنجاح:**\n\\`\\`\\`lua\n\${result}\n\\`\\`\\``);
+                    waitingMsg.edit("✅ **تم التشفير بنجاح:**\n```lua\n" + result + "\n```");
                 }
             });
         }
     });
 
-    client.login(DISCORD_TOKEN).catch(err => console.error("Discord login failed. Ensure token is valid. Details:", err));
+    client.login(DISCORD_TOKEN).catch(err => console.error("Discord login failed:", err));
 } else {
     console.log("Environment variable 'DISCORD_TOKEN' not set. Discord bot feature is suspended.");
 }
