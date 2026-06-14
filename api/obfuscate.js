@@ -18,29 +18,58 @@ app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.use(express.static(path.join(__dirname, '../')));
 
-// مسار ملف حفظ الإحصائيات لضمان عدم تصفير العدادات عند إعادة تشغيل Railway
+// مسار ملف حفظ الإحصائيات والاشتراكات لضمان عدم تصفير البيانات
 const statsPath = path.join(__dirname, '../stats.json');
 
-// دالة لجلب الإحصائيات الحالية
+// دالة لجلب البيانات والإحصائيات الحالية
 function getStats() {
     if (!fs.existsSync(statsPath)) {
-        return { totalObfuscations: 0, uniqueUsers: [] };
+        return { totalObfuscations: 0, uniqueUsers: [], dailyLimits: {}, vips: {} };
     }
     try {
         const data = fs.readFileSync(statsPath, 'utf8');
-        return JSON.parse(data);
+        const parsed = JSON.parse(data);
+        if (!parsed.dailyLimits) parsed.dailyLimits = {};
+        if (!parsed.vips) parsed.vips = {};
+        return parsed;
     } catch (e) {
-        return { totalObfuscations: 0, uniqueUsers: [] };
+        return { totalObfuscations: 0, uniqueUsers: [], dailyLimits: {}, vips: {} };
     }
 }
 
-// دالة لتحديث وحفظ الإحصائيات
+// دالة لتحديث وحفظ البيانات
 function saveStats(stats) {
     try {
         fs.writeFileSync(statsPath, JSON.stringify(stats, null, 2), 'utf8');
     } catch (e) {
         console.error("Failed to save stats:", e);
     }
+}
+
+// دالة للتحقق من حالة اشتراك المستخدم وصلاحيته
+function checkUserStatus(userId) {
+    const stats = getStats();
+    const today = new Date().toISOString().split('T')[0]; // جلب تاريخ اليوم الحالي YYYY-MM-DD
+
+    // 1. التحقق من اشتراك الـ VIP
+    if (stats.vips && stats.vips[userId]) {
+        const expiryDate = stats.vips[userId]; // صيغته المتوقعة YYYY-MM-DD
+        if (new Date(today) <= new Date(expiryDate)) {
+            return { isVip: true, expiry: expiryDate };
+        } else {
+            // إذا انتهى تاريخ الاشتراك، نقوم بحذفه تلقائياً
+            delete stats.vips[userId];
+            saveStats(stats);
+        }
+    }
+
+    // 2. إذا كان مستخدماً مجانياً، نحسب عدد محاولاته اليوم
+    if (!stats.dailyLimits[today]) {
+        stats.dailyLimits[today] = {};
+    }
+    const userCount = stats.dailyLimits[today][userId] || 0;
+
+    return { isVip: false, usedToday: userCount, remaining: Math.max(0, 2 - userCount) };
 }
 
 // دالة ذكية لتصحيح أخطاء الـ Lua الشائعة تلقائياً قبل التشفير
@@ -54,7 +83,7 @@ function autoFixLuaCode(code) {
         fixedCode = fixedCode.replace(operatorRegex, (match, variable, operator, value) => {
             return `${variable} = ${variable} ${operator} ${value}`;
         });
-        report.push("تم تحويل اختصارات العمليات الحسابية (مثل `+=`, `-=`) إلى صياغة Lua 5.1 القياسية ✨");
+        report.push("تم تحويل اختصارات العمليات الحسابية (مثل `+=`, `-=`) إلى الصياغة الصحيحة ✨");
     }
 
     return { fixedCode, report };
@@ -90,7 +119,6 @@ function runHercules(code, callback) {
                 if (readErr) return callback(readErr, null);
                 
                 // ✨ [تعديل التباعد بداخل الملف المشفر]:
-                // نقوم بوضع مسافة أسطر فارغة بعد هيدر التعليق البرمجي لكي لا يتداخل مع الـ return وكود التشفير الأساسي
                 let formattedResult = obfuscatedResult;
                 if (formattedResult.startsWith("--")) {
                     const firstLineEnd = formattedResult.indexOf('\n');
@@ -132,7 +160,7 @@ if (DISCORD_TOKEN) {
     const client = new Client({
         intents: [
             GatewayIntentBits.Guilds,
-            GatewayIntentBits.GuildMessages,
+            GatewayIntentBits.GatewayIntentBits || GatewayIntentBits.GuildMessages,
             GatewayIntentBits.MessageContent,
             GatewayIntentBits.DirectMessages
         ],
@@ -162,7 +190,16 @@ if (DISCORD_TOKEN) {
             }
 
             const stats = getStats();
-            return message.reply(`📊 **إحصائيات منصة SA | OBFUSCATOR:**\n\n> 💎 **إجمالي عمليات التشفير الناجحة:** \`${stats.totalObfuscations}\` مرة.\n> 👥 **عدد المستخدمين الفريدين للبوت:** \`${stats.uniqueUsers.length}\` مستخدم.\n\n✨ فخورين بتقديم أفضل حماية لأكوادكم!`);
+            const userStatus = checkUserStatus(message.author.id);
+            
+            let statusText = "";
+            if (userStatus.isVip) {
+                statusText = `👑 **حالة الحساب:** \`VIP (مشترك)\`\n> 📆 **تاريخ انتهاء الاشتراك:** \`${userStatus.expiry}\``;
+            } else {
+                statusText = `📝 **حالة الحساب:** \`مجاني\`\n> 🔄 **المحاولات المتبقية لك اليوم:** \`${userStatus.remaining} / 2\``;
+            }
+
+            return message.reply(`📊 **إحصائيات منصة SA | OBFUSCATOR:**\n\n> 💎 **إجمالي عمليات التشفير الناجحة للمنصة:** \`${stats.totalObfuscations}\` مرة.\n> 👥 **عدد المستخدمين الفريدين للبوت:** \`${stats.uniqueUsers.length}\` مستخدم.\n\n${statusText}\n\n✨ فخورين بتقديم أفضل حماية لأكوادكم!`);
         }
 
         if (isObfCommand || isRealCommand) {
@@ -171,10 +208,16 @@ if (DISCORD_TOKEN) {
             if (message.channel.type !== ChannelType.DM) {
                 if (message.deletable) await message.delete().catch(() => {});
                 
-                return message.reply("⚠️ **أمن كودك أولاً!**\nلحماية أسرار مشروعك وأكوادك البرمجية، أوامر التشفير تعمل في **الشات الخاص بالبوت فقط** 🛡️.\n> أرسل ملفك أو كودك هنا مباشرة في الخاص.")
+                return message.reply("⚠️ **أمن كودك أولاً!**\nلحماية مشروعك وأكوادك البرمجية، أوامر التشفير تعمل في **الشات الخاص بالبوت فقط** 🛡️.\n> أرسل ملفك أو كودك هنا مباشرة في الخاص.")
                     .then(msg => {
                         setTimeout(() => msg.delete().catch(() => {}), 7000);
                     }).catch(() => {});
+            }
+
+            // 💳 [فحص الصلاحية والاشتراك قبل البدء بالتشفير]
+            const userStatus = checkUserStatus(message.author.id);
+            if (!userStatus.isVip && userStatus.remaining <= 0) {
+                return message.reply("❌ **خطأ:** لقد استهلكت حدّك المجاني المسموح به اليوم وهو **(تشفيرين باليوم)**.\n\n👑 إذا كنت تريد تشفير عدد غير محدود من السكريبتات وإلغاء القيود، يرجى الاشتراك معنا .\n📢 تواصل مع الإدارة لتفعيل اشتراكك فوراً!");
             }
 
             let codeToObfuscate = "";
@@ -227,17 +270,29 @@ if (DISCORD_TOKEN) {
                     return waitingMsg.edit(`❌ فشل التشفير جرب بامر !real`);
                 }
 
-                // 📈 تحديث وحفظ الإحصائيات عند نجاح التشفير
+                // 📈 تحديث وحفظ الإحصائيات والحد اليومي بعد نجاح التشفير
                 const currentStats = getStats();
+                const today = new Date().toISOString().split('T')[0];
+
+                // زيادة العداد العام للمنصة
                 currentStats.totalObfuscations += 1;
+                
+                // إضافة المستخدم لقائمة المستخدمين الفريدين إن لم يكن موجوداً
                 if (!currentStats.uniqueUsers.includes(message.author.id)) {
                     currentStats.uniqueUsers.push(message.author.id);
                 }
+
+                // إذا كان مستخدماً مجانياً، نقوم بزيادة العداد اليومي له
+                if (!userStatus.isVip) {
+                    if (!currentStats.dailyLimits[today]) currentStats.dailyLimits[today] = {};
+                    currentStats.dailyLimits[today][message.author.id] = (currentStats.dailyLimits[today][message.author.id] || 0) + 1;
+                }
+
                 saveStats(currentStats);
 
-                // دمج التقارير والحقوق الرسمية المظهرية للبوت مع نزول أسطر تمنع تداخل النصوص والـ Code Block
-                const footerText = "\n\n✨ *تم التشفير بنجاح بواسطة برمجيات: **SA | OBFUSCATOR***";
-                const fullResponseText = finalReportMessage + "💎 **[SA | OBFUSCATOR] - التشفير النهائي جاهز ومحمي بالكامل:**\n" + footerText + "\n\n";
+                // دمج التقارير ورابط القناة بعد الانتهاء
+                const footerText = "\n\n✨ تم التشفير بنجاح بواسطة : **SA | OBFUSCATOR***\n📢 **يرجى الانضمام إلى القناة المخصصة لدعمنا:** https://discord.gg/SMDKFTttCW";
+                const fullResponseText = finalReportMessage + "💎 **[SA | OBFUSCATOR] - التشفير النهائي :**\n" + footerText + "\n\n";
 
                 // إذا كان الناتج طويلاً أو أرسل ملفاً، نعيد له الناتج كملف فخم ومنظم
                 if (result.length > 1900 || message.attachments.size > 0) {
