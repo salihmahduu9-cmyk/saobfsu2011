@@ -75,7 +75,7 @@ local function encode(str_param, yes)
 
     return table.concat(out)
 end
-	add("saalone,v1,alpha,__,_ = 'Protected By SA | ALONE | discord.gg/eS4fgMazxy', function()end, true, 1, 0")
+	add("saalone,v1,alpha,__,_ = 'Protected By SA | ALONE | .gg/eS4fgMazxy', function()end, true, 1, 0")
 	add(Parts.Variables)
 	add(Parts.Deserializer)
 	add(Parts.Wrapper_1)
